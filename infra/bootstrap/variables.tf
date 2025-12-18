@@ -13,11 +13,11 @@ variable "name" {
 variable "github_owner" {
   type        = string
   description = "GitHub org/user that owns the repo"
-  default     = "CHANGE_ME"
+  default     = "adel9905"
 }
 
 variable "github_repo" {
   type        = string
   description = "GitHub repository name"
-  default     = "CHANGE_ME"
+  default     = "aws-githubactions-cicd"
 }
