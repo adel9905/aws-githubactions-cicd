@@ -1,0 +1,51 @@
+name: Deploy Website
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+    paths:
+      - "app/**"
+      - "scripts/build.sh"
+      - ".github/workflows/deploy-site.yml"
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Build static site
+        run: |
+          bash scripts/build.sh
+
+      - name: Read Terraform outputs (bucket + distribution id)
+        working-directory: infra/production
+        run: |
+          terraform init             -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}"             -backend-config="dynamodb_table=${{ secrets.TF_LOCK_TABLE }}"             -backend-config="key=production/terraform.tfstate"             -backend-config="region=${{ secrets.AWS_REGION }}"
+          echo "BUCKET_NAME=$(terraform output -raw bucket_name)" >> $GITHUB_ENV
+          echo "DIST_ID=$(terraform output -raw cloudfront_distribution_id)" >> $GITHUB_ENV
+          echo "SITE_URL=$(terraform output -raw site_url)" >> $GITHUB_ENV
+
+      - name: Upload to S3
+        run: |
+          aws s3 sync dist/ "s3://${BUCKET_NAME}" --delete
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation --distribution-id "${DIST_ID}" --paths "/*"
+
+      - name: Print URL
+        run: |
+          echo "Deployed: ${SITE_URL}"

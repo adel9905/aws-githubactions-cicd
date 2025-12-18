@@ -1,0 +1,7 @@
+dist/
+.terraform/
+.terraform.lock.hcl
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+.DS_Store
